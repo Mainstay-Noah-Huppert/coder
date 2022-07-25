@@ -121,7 +121,11 @@ func TestAgent(t *testing.T) {
 		err = session.Wait()
 		exitErr := &ssh.ExitError{}
 		require.True(t, xerrors.As(err, &exitErr))
-		assert.Equal(t, 127, exitErr.ExitStatus())
+		if runtime.GOOS == "windows" {
+			assert.Equal(t, 1, exitErr.ExitStatus())
+		} else {
+			assert.Equal(t, 127, exitErr.ExitStatus())
+		}
 	})
 
 	t.Run("LocalForwarding", func(t *testing.T) {
