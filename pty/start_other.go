@@ -4,7 +4,6 @@
 package pty
 
 import (
-	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -14,10 +13,10 @@ import (
 	"golang.org/x/xerrors"
 )
 
-func startPty(cmd *exec.Cmd) (PTY, *os.Process, error) {
+func startPty(cmd *exec.Cmd) (WithProcess, error) {
 	ptty, tty, err := pty.Open()
 	if err != nil {
-		return nil, nil, xerrors.Errorf("open: %w", err)
+		return nil, xerrors.Errorf("open: %w", err)
 	}
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setsid:  true,
@@ -35,18 +34,16 @@ func startPty(cmd *exec.Cmd) (PTY, *os.Process, error) {
 			// TTY resolves it.
 			return startPty(cmd)
 		}
-		return nil, nil, xerrors.Errorf("start: %w", err)
+		return nil, xerrors.Errorf("start: %w", err)
 	}
-	go func() {
-		// The GC can garbage collect the TTY FD before the command
-		// has finished running. See:
-		// https://github.com/creack/pty/issues/127#issuecomment-932764012
-		_ = cmd.Wait()
-		runtime.KeepAlive(ptty)
-	}()
-	oPty := &otherPty{
-		pty: ptty,
-		tty: tty,
+	oPty := &otherPtyWithProcess{
+		otherPty: &otherPty{
+			pty: ptty,
+			tty: tty,
+		},
+		cmd:     cmd,
+		cmdDone: make(chan any),
 	}
-	return oPty, cmd.Process, nil
+	go oPty.wait()
+	return oPty, nil
 }

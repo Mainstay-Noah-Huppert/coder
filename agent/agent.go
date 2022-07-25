@@ -43,6 +43,11 @@ const (
 	ProtocolReconnectingPTY = "reconnecting-pty"
 	ProtocolSSH             = "ssh"
 	ProtocolDial            = "dial"
+
+	// CoderSessionErrorCode indicates that something went wrong with the session, rather than the
+	// command just returning a nonzero exit code, and is chosen as an arbitrary, high number
+	// unlikely to shadow other exit codes, which are typically 1, 2, 3, etc.
+	CoderSessionErrorCode = 229
 )
 
 type Options struct {
@@ -273,9 +278,15 @@ func (a *agent) init(ctx context.Context) {
 		},
 		Handler: func(session ssh.Session) {
 			err := a.handleSSHSession(session)
+			var exitError *exec.ExitError
+			if xerrors.As(err, &exitError) {
+				a.logger.Debug(ctx, "ssh session returned", slog.Error(exitError))
+				_ = session.Exit(exitError.ExitCode())
+				return
+			}
 			if err != nil {
 				a.logger.Warn(ctx, "ssh session failed", slog.Error(err))
-				_ = session.Exit(1)
+				_ = session.Exit(CoderSessionErrorCode)
 				return
 			}
 		},
@@ -422,7 +433,7 @@ func (a *agent) handleSSHSession(session ssh.Session) error {
 	sshPty, windowSize, isPty := session.Pty()
 	if isPty {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("TERM=%s", sshPty.Term))
-		ptty, process, err := pty.Start(cmd)
+		ptty, err := pty.Start(cmd)
 		if err != nil {
 			return xerrors.Errorf("start command: %w", err)
 		}
@@ -444,9 +455,23 @@ func (a *agent) handleSSHSession(session ssh.Session) error {
 		go func() {
 			_, _ = io.Copy(session, ptty.Output())
 		}()
-		_, _ = process.Wait()
-		_ = ptty.Close()
-		return nil
+		waitErr := ptty.Wait()
+		var exitErr *exec.ExitError
+		// ExitErrors just mean the command we run returned a non-zero exit code, which is normal
+		// and not something to be concerned about.  But, if it's something else, we should log and
+		// return it.
+		if waitErr != nil && !xerrors.As(waitErr, &exitErr) {
+			a.logger.Warn(context.Background(), "wait error",
+				slog.Error(err))
+			return err
+		}
+		closeErr := ptty.Close()
+		if closeErr != nil {
+			a.logger.Warn(context.Background(), "failed to close tty",
+				slog.Error(err))
+			return err
+		}
+		return waitErr
 	}
 
 	cmd.Stdout = session
@@ -513,7 +538,7 @@ func (a *agent) handleReconnectingPTY(ctx context.Context, rawID string, conn ne
 		}
 		cmd.Env = append(cmd.Env, "TERM=xterm-256color")
 
-		ptty, process, err := pty.Start(cmd)
+		ptty, err := pty.Start(cmd)
 		if err != nil {
 			a.logger.Warn(ctx, "start reconnecting pty command", slog.F("id", id))
 		}
@@ -544,12 +569,12 @@ func (a *agent) handleReconnectingPTY(ctx context.Context, rawID string, conn ne
 			// 1. The timeout completed.
 			// 2. The parent context was canceled.
 			<-ctx.Done()
-			_ = process.Kill()
+			_ = ptty.Kill()
 		}()
 		go func() {
 			// If the process dies randomly, we should
 			// close the pty.
-			_, _ = process.Wait()
+			_ = ptty.Wait()
 			rpty.Close()
 		}()
 		go func() {
@@ -577,7 +602,7 @@ func (a *agent) handleReconnectingPTY(ctx context.Context, rawID string, conn ne
 
 			// Cleanup the process, PTY, and delete it's
 			// ID from memory.
-			_ = process.Kill()
+			_ = ptty.Kill()
 			rpty.Close()
 			a.reconnectingPTYs.Delete(id)
 			a.connCloseWait.Done()

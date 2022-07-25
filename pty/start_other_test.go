@@ -20,7 +20,7 @@ func TestStart(t *testing.T) {
 	t.Parallel()
 	t.Run("Echo", func(t *testing.T) {
 		t.Parallel()
-		pty, _ := ptytest.Start(t, exec.Command("echo", "test"))
+		pty := ptytest.Start(t, exec.Command("echo", "test"))
 		pty.ExpectMatch("test")
 	})
 }

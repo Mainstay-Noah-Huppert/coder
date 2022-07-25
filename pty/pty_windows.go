@@ -5,6 +5,7 @@ package pty
 
 import (
 	"os"
+	"os/exec"
 	"sync"
 	"unsafe"
 
@@ -66,6 +67,13 @@ type ptyWindows struct {
 	closed     bool
 }
 
+type ptyWindowsWithProcess struct {
+	*ptyWindows
+	cmdDone chan any
+	cmdErr  error
+	proc    *os.Process
+}
+
 func (p *ptyWindows) Output() ReadWriter {
 	return ReadWriter{
 		Reader: p.outputRead,
@@ -110,4 +118,26 @@ func (p *ptyWindows) Close() error {
 	}
 
 	return nil
+}
+
+func (p *ptyWindowsWithProcess) wait() {
+	defer close(p.cmdDone)
+	state, err := p.proc.Wait()
+	if err != nil {
+		p.cmdErr = err
+		return
+	}
+	if !state.Success() {
+		p.cmdErr = &exec.ExitError{ProcessState: state}
+		return
+	}
+}
+
+func (p *ptyWindowsWithProcess) Wait() error {
+	<-p.cmdDone
+	return p.cmdErr
+}
+
+func (p *ptyWindowsWithProcess) Kill() error {
+	return p.proc.Kill()
 }

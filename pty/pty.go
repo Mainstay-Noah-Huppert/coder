@@ -29,6 +29,17 @@ type PTY interface {
 	Resize(height uint16, width uint16) error
 }
 
+// WithProcess represents a PTY with a running command
+type WithProcess interface {
+	PTY
+
+	// Wait for the command to complete.  Returned error is as for exec.Cmd.Wait()
+	Wait() error
+
+	// Kill the command process.  Returned error is as for os.Process.Kill()
+	Kill() error
+}
+
 // WithFlags represents a PTY whose flags can be inspected, in particular
 // to determine whether local echo is enabled.
 type WithFlags interface {

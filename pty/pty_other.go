@@ -5,6 +5,8 @@ package pty
 
 import (
 	"os"
+	"os/exec"
+	"runtime"
 	"sync"
 
 	"github.com/creack/pty"
@@ -25,6 +27,13 @@ func newPty() (PTY, error) {
 type otherPty struct {
 	mutex    sync.Mutex
 	pty, tty *os.File
+}
+
+type otherPtyWithProcess struct {
+	*otherPty
+	cmd     *exec.Cmd
+	cmdDone chan any
+	cmdErr  error
 }
 
 func (p *otherPty) Input() ReadWriter {
@@ -64,4 +73,22 @@ func (p *otherPty) Close() error {
 		return err
 	}
 	return nil
+}
+
+func (p *otherPtyWithProcess) Wait() error {
+	<-p.cmdDone
+	return p.cmdErr
+}
+
+func (p *otherPtyWithProcess) Kill() error {
+	return p.cmd.Process.Kill()
+}
+
+func (p *otherPtyWithProcess) wait() {
+	// The GC can garbage collect the TTY FD before the command
+	// has finished running. See:
+	// https://github.com/creack/pty/issues/127#issuecomment-932764012
+	p.cmdErr = p.cmd.Wait()
+	runtime.KeepAlive(p.pty)
+	close(p.cmdDone)
 }

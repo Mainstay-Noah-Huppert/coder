@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"os"
 	"os/exec"
 	"regexp"
 	"runtime"
@@ -32,10 +31,10 @@ func New(t *testing.T) *PTY {
 	return create(t, ptty)
 }
 
-func Start(t *testing.T, cmd *exec.Cmd) (*PTY, *os.Process) {
-	ptty, ps, err := pty.Start(cmd)
+func Start(t *testing.T, cmd *exec.Cmd) *PTY {
+	ptty, err := pty.Start(cmd)
 	require.NoError(t, err)
-	return create(t, ptty), ps
+	return create(t, ptty)
 }
 
 func create(t *testing.T, ptty pty.PTY) *PTY {
