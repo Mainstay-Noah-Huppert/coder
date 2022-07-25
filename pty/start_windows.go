@@ -88,7 +88,7 @@ func startPty(cmd *exec.Cmd) (WithProcess, error) {
 		cmdDone:    make(chan any),
 		proc:       process,
 	}
-	go pwp.wait()
+	go pwp.waitInternal()
 	return pwp, nil
 }
 

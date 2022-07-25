@@ -120,7 +120,7 @@ func (p *ptyWindows) Close() error {
 	return nil
 }
 
-func (p *ptyWindowsWithProcess) wait() {
+func (p *ptyWindowsWithProcess) waitInternal() {
 	defer close(p.cmdDone)
 	state, err := p.proc.Wait()
 	if err != nil {

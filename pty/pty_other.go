@@ -85,7 +85,7 @@ func (p *otherPtyWithProcess) Kill() error {
 	return p.cmd.Process.Kill()
 }
 
-func (p *otherPtyWithProcess) wait() {
+func (p *otherPtyWithProcess) waitInternal() {
 	// The GC can garbage collect the TTY FD before the command
 	// has finished running. See:
 	// https://github.com/creack/pty/issues/127#issuecomment-932764012

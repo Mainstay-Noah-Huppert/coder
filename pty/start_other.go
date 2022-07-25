@@ -44,6 +44,6 @@ func startPty(cmd *exec.Cmd) (WithProcess, error) {
 		cmd:     cmd,
 		cmdDone: make(chan any),
 	}
-	go oPty.wait()
+	go oPty.waitInternal()
 	return oPty, nil
 }
