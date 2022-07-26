@@ -414,7 +414,7 @@ func (a *agent) createCommand(ctx context.Context, rawCommand string, env []stri
 	return cmd, nil
 }
 
-func (a *agent) handleSSHSession(session ssh.Session) error {
+func (a *agent) handleSSHSession(session ssh.Session) (retErr error) {
 	cmd, err := a.createCommand(session.Context(), session.RawCommand(), session.Environ())
 	if err != nil {
 		return err
@@ -437,6 +437,16 @@ func (a *agent) handleSSHSession(session ssh.Session) error {
 		if err != nil {
 			return xerrors.Errorf("start command: %w", err)
 		}
+		defer func() {
+			closeErr := ptty.Close()
+			if closeErr != nil {
+				a.logger.Warn(context.Background(), "failed to close tty",
+					slog.Error(closeErr))
+				if retErr == nil {
+					retErr = closeErr
+				}
+			}
+		}()
 		err = ptty.Resize(uint16(sshPty.Window.Height), uint16(sshPty.Window.Width))
 		if err != nil {
 			return xerrors.Errorf("resize ptty: %w", err)
@@ -455,23 +465,15 @@ func (a *agent) handleSSHSession(session ssh.Session) error {
 		go func() {
 			_, _ = io.Copy(session, ptty.Output())
 		}()
-		waitErr := ptty.Wait()
+		err = ptty.Wait()
 		var exitErr *exec.ExitError
 		// ExitErrors just mean the command we run returned a non-zero exit code, which is normal
-		// and not something to be concerned about.  But, if it's something else, we should log and
-		// return it.
-		if waitErr != nil && !xerrors.As(waitErr, &exitErr) {
+		// and not something to be concerned about.  But, if it's something else, we should log it.
+		if err != nil && !xerrors.As(err, &exitErr) {
 			a.logger.Warn(context.Background(), "wait error",
 				slog.Error(err))
-			return err
 		}
-		closeErr := ptty.Close()
-		if closeErr != nil {
-			a.logger.Warn(context.Background(), "failed to close tty",
-				slog.Error(err))
-			return err
-		}
-		return waitErr
+		return err
 	}
 
 	cmd.Stdout = session

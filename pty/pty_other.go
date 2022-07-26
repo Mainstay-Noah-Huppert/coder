@@ -31,7 +31,9 @@ type otherPty struct {
 
 type otherPtyWithProcess struct {
 	*otherPty
-	cmd     *exec.Cmd
+	cmd *exec.Cmd
+
+	// cmdDone protects access to cmdErr: anything reading cmdErr should read from cmdDone first.
 	cmdDone chan any
 	cmdErr  error
 }

@@ -69,6 +69,8 @@ type ptyWindows struct {
 
 type ptyWindowsWithProcess struct {
 	*ptyWindows
+
+	// cmdDone protects access to cmdErr: anything reading cmdErr should read from cmdDone first.
 	cmdDone chan any
 	cmdErr  error
 	proc    *os.Process
