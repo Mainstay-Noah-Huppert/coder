@@ -408,7 +408,7 @@ export interface Workspace {
   readonly ttl_ms?: number
 }
 
-// From codersdk/workspaceresources.go:33:6
+// From codersdk/workspaceresources.go:40:6
 export interface WorkspaceAgent {
   readonly id: string
   readonly created_at: string
@@ -442,7 +442,7 @@ export interface WorkspaceAgentAuthenticateResponse {
   readonly session_token: string
 }
 
-// From codersdk/workspaceresources.go:63:6
+// From codersdk/workspaceresources.go:70:6
 export interface WorkspaceAgentInstanceMetadata {
   readonly jail_orchestrator: string
   readonly operating_system: string
@@ -455,7 +455,7 @@ export interface WorkspaceAgentInstanceMetadata {
   readonly vnc: boolean
 }
 
-// From codersdk/workspaceresources.go:55:6
+// From codersdk/workspaceresources.go:62:6
 export interface WorkspaceAgentResourceMetadata {
   readonly memory_total: number
   readonly disk_total: number
@@ -516,6 +516,14 @@ export interface WorkspaceResource {
   readonly type: string
   readonly name: string
   readonly agents?: WorkspaceAgent[]
+  readonly metadata?: WorkspaceResourceMetadata[]
+}
+
+// From codersdk/workspaceresources.go:34:6
+export interface WorkspaceResourceMetadata {
+  readonly key: string
+  readonly value: string
+  readonly sensitive: boolean
 }
 
 // From codersdk/workspacebuilds.go:22:6
