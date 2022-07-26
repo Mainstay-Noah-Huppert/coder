@@ -44,10 +44,10 @@ const (
 	ProtocolSSH             = "ssh"
 	ProtocolDial            = "dial"
 
-	// CoderSessionErrorCode indicates that something went wrong with the session, rather than the
+	// MagicSessionErrorCode indicates that something went wrong with the session, rather than the
 	// command just returning a nonzero exit code, and is chosen as an arbitrary, high number
 	// unlikely to shadow other exit codes, which are typically 1, 2, 3, etc.
-	CoderSessionErrorCode = 229
+	MagicSessionErrorCode = 229
 )
 
 type Options struct {
@@ -286,7 +286,9 @@ func (a *agent) init(ctx context.Context) {
 			}
 			if err != nil {
 				a.logger.Warn(ctx, "ssh session failed", slog.Error(err))
-				_ = session.Exit(CoderSessionErrorCode)
+				// This exit code is designed to be unlikely to be confused for a legit exit code
+				// from the process.
+				_ = session.Exit(MagicSessionErrorCode)
 				return
 			}
 		},
