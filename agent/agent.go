@@ -453,8 +453,8 @@ func (a *agent) handleSSHSession(session ssh.Session) (retErr error) {
 		}
 		go func() {
 			for win := range windowSize {
-				err = ptty.Resize(uint16(win.Height), uint16(win.Width))
-				if err != nil {
+				resizeErr := ptty.Resize(uint16(win.Height), uint16(win.Width))
+				if resizeErr != nil {
 					a.logger.Warn(context.Background(), "failed to resize tty", slog.Error(err))
 				}
 			}
